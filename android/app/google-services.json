@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "970798776513",
+    "project_id": "olaro-app-d8194",
+    "storage_bucket": "olaro-app-d8194.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:970798776513:android:cd32040a807e42c0e09440",
+        "android_client_info": {
+          "package_name": "com.olaroapp.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "970798776513-d7i6en2u02n6hnq1l2qv9873c1lst12c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.olaroapp.app",
+            "certificate_hash": "39b778f8735e313bfe47ce32ecc6f3afb71fe46d"
+          }
+        },
+        {
+          "client_id": "970798776513-ok5isel0mbbgtphct0sgdnumc15ucnet.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.olaroapp.app",
+            "certificate_hash": "2e8d90f5e640ad4c3a7f33f8451d0aa40e91b970"
+          }
+        },
+        {
+          "client_id": "970798776513-tdst3o68paqr6rbeuqre2s1jussg2rrr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgq3ZJoFLOeh2borskAbUv-s_9hzjBsdc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "970798776513-tdst3o68paqr6rbeuqre2s1jussg2rrr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,72 @@
+name: coin_mining_app
+description: Mining App with Google Sign-In
+
+publish_to: 'none'
+
+version: 1.0.0+2
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Google Sign-In - For Google OAuth authentication
+  google_sign_in: ^7.2.0
+
+  # HTTP - For API calls to backend
+  http: ^1.2.0
+  
+  # HTTP Parser - For multipart upload content types
+  http_parser: ^4.0.2
+
+  # Shared Preferences - For storing auth token locally
+  shared_preferences: ^2.2.2
+
+  # Image Picker - For KYC document uploads and avatar
+  image_picker: ^1.0.7
+
+  # URL Launcher - For opening external links
+  url_launcher: ^6.2.4
+
+  # Share Plus - For sharing referral links
+  share_plus: ^7.2.2
+
+  # Intl - For date/number formatting
+  intl: ^0.19.0
+
+  # Cupertino Icons - For iOS style icons
+  cupertino_icons: ^1.0.6
+  socket_io_client: ^3.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.1
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.4
+  image: ^4.8.0
+
+flutter_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/olaro_padded.png"
+  remove_alpha_ios: true
+  adaptive_icon_background: "#1A1A2E"
+  adaptive_icon_foreground: "assets/images/olaro_padded.png"
+  
+flutter_native_splash:
+  color: "#1A1A2E"
+  image: "assets/images/olaro_padded.png"
+  android_12:
+    color: "#1A1A2E"
+    image: "assets/images/olaro_padded.png"
+
+flutter:
+  uses-material-design: true
+
+  # Add your assets here if needed
+  assets:
+    - assets/images/
