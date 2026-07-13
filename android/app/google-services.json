@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "970798776513-511d4oc9rsmuvsofvcsl1g6b19b3mnmj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.olaroapp.app",
+            "certificate_hash": "4be340f3a3e271f8766a3db943284a5cde5e80ed"
+          }
+        },
+        {
           "client_id": "970798776513-d7i6en2u02n6hnq1l2qv9873c1lst12c.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

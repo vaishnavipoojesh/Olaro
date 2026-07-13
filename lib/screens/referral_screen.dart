@@ -95,7 +95,12 @@ class ReferralScreenState extends State<ReferralScreen> {
     }
   }
 
-  Future<void> _pingInactiveReferrals() async {
+  Future<void> _pingReferral(String userId, String userName) async {
+    if (userId.isEmpty) {
+      _showSnackBar('Invalid user ID', isError: true);
+      return;
+    }
+    
     HapticFeedback.mediumImpact();
 
     // Show loading
@@ -108,9 +113,9 @@ class ReferralScreenState extends State<ReferralScreen> {
     );
 
     try {
-      final result = await ApiService.pingInactiveReferrals();
+      final result = await ApiService.pingInactiveReferrals(userId);
       if (mounted) Navigator.pop(context); // Close loading
-      _showSnackBar(result['message'] ?? 'Pinged inactive referrals!',
+      _showSnackBar(result['message'] ?? 'Pinged $userName!',
           isSuccess: true);
     } catch (e) {
       if (mounted) Navigator.pop(context); // Close loading
@@ -212,7 +217,7 @@ class ReferralScreenState extends State<ReferralScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${totalEarnings.toStringAsFixed(2)} CM',
+            '${totalEarnings.toStringAsFixed(2)} OLR',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -232,23 +237,7 @@ class ReferralScreenState extends State<ReferralScreen> {
                   'Inactive', inactiveReferrals.toString(), Icons.schedule),
             ],
           ),
-          if (inactiveReferrals > 0) ...[
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _pingInactiveReferrals,
-              icon: const Icon(Icons.notifications_active, size: 18),
-              label: const Text('Ping Inactive Friends'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFFFF8C00),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
+          // Bulk ping button removed since backend requires individual user pings.
         ],
       ),
     );
@@ -440,7 +429,7 @@ class ReferralScreenState extends State<ReferralScreen> {
           _buildStep('2', 'They sign up using your code'),
           const SizedBox(height: 12),
           _buildStep('3',
-              'You get ${_referralSettings?['directReferralBonus'] ?? 1} CM and they get ${_referralSettings?['signupBonus'] ?? 1} CM!'),
+              'You get ${_referralSettings?['directReferralBonus'] ?? 1} OLR and they get ${_referralSettings?['signupBonus'] ?? 1} OLR!'),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
@@ -457,7 +446,7 @@ class ReferralScreenState extends State<ReferralScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Earn ${_referralSettings?['directReferralBonus'] ?? 1} CM coins for each successful referral!',
+                    'Earn ${_referralSettings?['directReferralBonus'] ?? 1} OLR coins for each successful referral!',
                     style: const TextStyle(
                         color: AppColors.success,
                         fontSize: 12,
@@ -557,6 +546,10 @@ class ReferralScreenState extends State<ReferralScreen> {
     final firstLetter =
         name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
 
+    final userId = (user != null) 
+        ? (user['_id']?.toString() ?? user['id']?.toString() ?? '')
+        : (referral['_id']?.toString() ?? referral['id']?.toString() ?? '');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -647,13 +640,34 @@ class ReferralScreenState extends State<ReferralScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                '+${bonus.toStringAsFixed(0)} CM',
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
+              if (!isActive)
+                GestureDetector(
+                  onTap: () => _pingReferral(userId, name),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.notifications_active, size: 12, color: AppColors.primary),
+                        SizedBox(width: 4),
+                        Text('Ping', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  '+${bonus.toStringAsFixed(0)} OLR',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
             ],
           ),
         ],
@@ -664,7 +678,7 @@ class ReferralScreenState extends State<ReferralScreen> {
   String _formatDate(String dateString) {
     if (dateString.isEmpty) return '';
     try {
-      final date = DateTime.parse(dateString);
+      final date = DateTime.parse(dateString).toLocal();
       return '${date.day}/${date.month}/${date.year}';
     } catch (e) {
       return dateString;

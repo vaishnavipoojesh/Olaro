@@ -198,6 +198,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
     final metadata = tx['metadata'] ?? {};
     final walletType = metadata['walletType'] ?? '';
 
+    final displayAmount = (tx['coins'] ?? tx['amount'] ?? 0).toDouble().abs();
+
     // Determine if this is incoming (earned) or outgoing (spent)
     // Check coins field first (negative = spent), then fall back to type
     bool isIncoming;
@@ -296,7 +298,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
                         ),
                       ),
                       Text(
-                        '${isIncoming ? '+' : '-'}${amount.toStringAsFixed(2)} CM',
+                        '${isIncoming ? '+' : '-'}${displayAmount.toStringAsFixed(2)} OLR',
                         style: TextStyle(
                           color:
                               isIncoming ? AppColors.success : AppColors.error,
@@ -402,7 +404,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
             const SizedBox(height: 24),
             _buildDetailRow('Type', _getTypeDescription(tx['type'] ?? '')),
             _buildDetailRow(
-                'Amount', '${(tx['amount'] ?? 0).toStringAsFixed(2)} CM'),
+                'Amount', '\$${(tx['amount'] ?? 0).toStringAsFixed(2)}'),
             _buildDetailRow('Status', (tx['status'] ?? '').toUpperCase()),
             if (tx['metadata']?['walletType'] != null)
               _buildDetailRow('Wallet',
@@ -480,7 +482,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
   String _formatDate(String dateString) {
     if (dateString.isEmpty) return '';
     try {
-      final date = DateTime.parse(dateString);
+      final date = DateTime.parse(dateString).toLocal();
       return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateString;

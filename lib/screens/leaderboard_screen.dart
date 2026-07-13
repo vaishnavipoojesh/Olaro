@@ -180,7 +180,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 12),
         ),
         Text(
-          '${coins.toStringAsFixed(0)} CM',
+          '${coins.toStringAsFixed(0)} OLR',
           style: TextStyle(
               color: color, fontSize: 11, fontWeight: FontWeight.bold),
         ),
@@ -247,7 +247,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 const Text('Your Rank',
                     style: TextStyle(color: Colors.grey, fontSize: 12)),
                 Text(
-                  '${totalMined.toStringAsFixed(2)} CM mined',
+                  '${totalMined.toStringAsFixed(2)} OLR mined',
                   style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold),
                 ),
@@ -326,7 +326,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     color: Colors.white, fontWeight: FontWeight.w500)),
           ),
           Text(
-            '${coins.toStringAsFixed(2)} CM',
+            '${coins.toStringAsFixed(2)} OLR',
             style: TextStyle(
                 color: rankColor ?? Colors.grey, fontWeight: FontWeight.bold),
           ),

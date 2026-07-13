@@ -218,7 +218,7 @@ class _MiningHistoryScreenState extends State<MiningHistoryScreen> {
           Expanded(
             child: _buildStatItem(
               'Total Mined',
-              '${totalMined.toStringAsFixed(2)} CM',
+              '${totalMined.toStringAsFixed(2)} OLR',
               Icons.token,
             ),
           ),
@@ -247,9 +247,9 @@ class _MiningHistoryScreenState extends State<MiningHistoryScreen> {
 
   Widget _buildSessionCard(Map<String, dynamic> session) {
     final startTime =
-        DateTime.tryParse(session['startTime'] ?? '') ?? DateTime.now();
+        DateTime.tryParse(session['startTime'] ?? '')?.toLocal() ?? DateTime.now();
     final endTime = session['endTime'] != null
-        ? DateTime.tryParse(session['endTime'])
+        ? DateTime.tryParse(session['endTime'])?.toLocal()
         : null;
 
     // For completed sessions use coinsEarned, for active use expectedCoins
@@ -377,7 +377,7 @@ class _MiningHistoryScreenState extends State<MiningHistoryScreen> {
               ),
               Expanded(
                 child: _buildDetailItem(
-                    'Coins Earned', '+${coins.toStringAsFixed(4)} CM'),
+                    'Coins Earned', '+${coins.toStringAsFixed(4)} OLR'),
               ),
               Expanded(
                 child: _buildDetailItem(

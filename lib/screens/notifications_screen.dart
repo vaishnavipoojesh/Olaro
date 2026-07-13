@@ -323,7 +323,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String _formatTime(String dateString) {
     if (dateString.isEmpty) return '';
     try {
-      final date = DateTime.parse(dateString);
+      final date = DateTime.parse(dateString).toLocal();
       final now = DateTime.now();
       final diff = now.difference(date);
 

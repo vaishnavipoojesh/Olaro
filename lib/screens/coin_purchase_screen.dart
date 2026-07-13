@@ -110,16 +110,19 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
       return;
     }
 
-    final amount = double.tryParse(amountText);
-    if (amount == null || amount <= 0) {
+    final amountInr = double.tryParse(amountText);
+    if (amountInr == null || amountInr <= 0) {
       _showSnackBar('Please enter valid amount', isError: true);
       return;
     }
 
+    final usdToInrRate = (_paymentInfo?['usdToInrRate'] ?? 83).toDouble();
+    final amountUsd = amountInr / usdToInrRate;
+
     setState(() => _isGeneratingLink = true);
 
     try {
-      final result = await ApiService.createPaymentLink(amount: amount);
+      final result = await ApiService.createPaymentLink(amount: amountUsd);
       setState(() {
         _paymentLink = result['paymentLink'];
         _amountINR = (result['amountINR'] as num).toDouble();
@@ -141,8 +144,8 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
       return;
     }
 
-    final amount = double.tryParse(amountText);
-    if (amount == null || amount <= 0) {
+    final amountInr = double.tryParse(amountText);
+    if (amountInr == null || amountInr <= 0) {
       _showSnackBar('Please enter valid amount', isError: true);
       return;
     }
@@ -157,12 +160,15 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
       return;
     }
 
+    final usdToInrRate = (_paymentInfo?['usdToInrRate'] ?? 83).toDouble();
+    final amountUsd = amountInr / usdToInrRate;
+
     setState(() => _isSubmittingUpi = true);
 
     try {
       final result = await ApiService.submitTransaction(
         transactionId: transactionId,
-        amount: amount,
+        amount: amountUsd,
       );
 
       _showSnackBar(result['message'] ?? 'Transaction submitted!',
@@ -306,6 +312,8 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
   Widget build(BuildContext context) {
     final coinPricePerDollar =
         (_paymentInfo?['coinPricePerDollar'] ?? 10).toInt();
+    final coinsPerINR = (_paymentInfo?['coinsPerINR'] ?? 1).toDouble();
+    final usdToInrRate = (_paymentInfo?['usdToInrRate'] ?? 83).toDouble();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -336,12 +344,12 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildCoinRateCard(coinPricePerDollar),
+                    _buildCoinRateCard(coinPricePerDollar, coinsPerINR),
                     const SizedBox(height: 24),
                     _buildPaymentMethodSelector(),
                     const SizedBox(height: 24),
                     if (_selectedPaymentMethod == 'UPI')
-                      ..._buildUpiSection(coinPricePerDollar)
+                      ..._buildUpiSection(coinsPerINR, usdToInrRate)
                     else
                       ..._buildCryptoSection(coinPricePerDollar),
                   ],
@@ -351,7 +359,7 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
     );
   }
 
-  Widget _buildCoinRateCard(num coinPricePerDollar) {
+  Widget _buildCoinRateCard(num coinPricePerDollar, double coinsPerINR) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -382,11 +390,14 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
                 const Text('Exchange Rate',
                     style: TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 4),
-                Text('\$1 = $coinPricePerDollar CM',
+                Text('\$1 = $coinPricePerDollar OLR',
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text('₹1 = ${coinsPerINR.toStringAsFixed(1)} OLR',
+                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
           ),
@@ -445,9 +456,9 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
     );
   }
 
-  List<Widget> _buildUpiSection(num coinPricePerDollar) {
+  List<Widget> _buildUpiSection(double coinsPerINR, double usdToInrRate) {
     return [
-      _buildUpiAmountSection(coinPricePerDollar),
+      _buildUpiAmountSection(coinsPerINR, usdToInrRate),
       if (_paymentLink != null) ...[
         const SizedBox(height: 24),
         _buildDynamicQrSection(),
@@ -471,7 +482,7 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
     ];
   }
 
-  Widget _buildUpiAmountSection(num coinPricePerDollar) {
+  Widget _buildUpiAmountSection(double coinsPerINR, double usdToInrRate) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -485,7 +496,7 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
                   fontSize: 18,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
-          const Text('Amount (USD)',
+          const Text('Amount (INR)',
               style: TextStyle(color: Colors.grey, fontSize: 13)),
           const SizedBox(height: 8),
           TextField(
@@ -493,37 +504,48 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(color: Colors.white, fontSize: 18),
             decoration: InputDecoration(
-              hintText: 'Enter amount (e.g., 10)',
+              hintText: 'Enter amount (e.g., 100)',
               hintStyle: const TextStyle(color: Colors.grey),
               prefixIcon:
-                  const Icon(Icons.attach_money, color: AppColors.primary),
+                  const Icon(Icons.currency_rupee, color: AppColors.primary),
               filled: true,
               fillColor: AppColors.cardLight,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none),
-              suffixText: 'USD',
+              suffixText: 'INR',
               suffixStyle: const TextStyle(color: AppColors.primary),
             ),
             onChanged: (value) => setState(() {}),
           ),
           const SizedBox(height: 8),
           Builder(builder: (context) {
-            final amount = double.tryParse(_upiAmountController.text) ?? 0;
-            final coins = (amount * coinPricePerDollar).toInt();
-            return Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10)),
-              child:
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.token, color: AppColors.primary, size: 20),
-                const SizedBox(width: 8),
-                Text('You will receive: $coins CM',
-                    style: const TextStyle(
-                        color: AppColors.primary, fontWeight: FontWeight.bold)),
-              ]),
+            final amountInr = double.tryParse(_upiAmountController.text) ?? 0;
+            final coins = (amountInr * coinsPerINR).toInt();
+            final amountUsd = amountInr / usdToInrRate;
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10)),
+                  child:
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.token, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text('You will receive: $coins OLR',
+                        style: const TextStyle(
+                            color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  ]),
+                ),
+                if (amountInr > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('Equivalent USD: \$${amountUsd.toStringAsFixed(2)}',
+                        style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  ),
+              ],
             );
           }),
           const SizedBox(height: 24),
@@ -584,8 +606,7 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
     );
 
     final walletAddress = selectedNetwork['walletAddress'] ?? 'N/A';
-    final qrCodeUrl = selectedNetwork['qrCodeUrl'] ??
-        ''; // Changed from 'qrCode' to 'qrCodeUrl'
+    final qrCodeUrl = selectedNetwork['qrCode'] ?? selectedNetwork['qrCodeUrl'] ?? '';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -766,7 +787,7 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const Icon(Icons.token, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
-                Text('You will receive: $coins CM',
+                Text('You will receive: $coins OLR',
                     style: const TextStyle(
                         color: AppColors.primary, fontWeight: FontWeight.bold)),
               ]),
@@ -1247,7 +1268,7 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${coins.toStringAsFixed(0)} CM',
+                    Text('${coins.toStringAsFixed(0)} OLR',
                         style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -1292,8 +1313,8 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
   String _formatDate(String dateString) {
     if (dateString.isEmpty) return '';
     try {
-      final date = DateTime.parse(dateString);
-      return '${date.day}/${date.month}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      final date = DateTime.parse(dateString).toLocal();
+      return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateString;
     }

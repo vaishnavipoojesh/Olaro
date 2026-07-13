@@ -86,7 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _buildInfoItem(
                           'Version', _settings?['appVersion'] ?? '1.0.0'),
                       _buildInfoItem('Mining Rate',
-                          '${_settings?['miningRate'] ?? 0.25} CM/hr'),
+                          '${_settings?['miningRate'] ?? 0.25} OLR/hr'),
                       _buildInfoItem('Referral Bonus',
                           '${_settings?['referralBonus'] ?? 10}%'),
                     ]),

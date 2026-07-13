@@ -400,14 +400,24 @@ class WalletScreenState extends State<WalletScreen>
 
   Widget _buildWalletTab(String type) {
     // Backend returns nested objects: miningWallet, purchaseWallet
-    final walletData = type == 'mining'
-        ? (_walletData?['miningWallet'] ?? {})
-        : (_walletData?['purchaseWallet'] ?? {});
+    final miningWallet = _walletData?['miningWallet'] ?? {};
+    final purchaseWallet = _walletData?['purchaseWallet'] ?? {};
+    
+    final walletData = type == 'mining' ? miningWallet : purchaseWallet;
 
-    final balance = (walletData['balance'] ?? 0).toDouble();
-    final locked = (walletData['locked'] ?? 0).toDouble();
-    final available =
-        (walletData['available'] ?? (balance - locked)).toDouble();
+    double balance = _safeDouble(walletData['balance']);
+    double locked = _safeDouble(walletData['locked']);
+    double available = _safeDouble(walletData['available']);
+
+    if (type == 'mining') {
+      balance = _safeDouble(miningWallet['balance']);
+      locked = _safeDouble(miningWallet['balance']);
+      available = _safeDouble(purchaseWallet['balance']);
+    } else {
+      if (available == 0 && locked == 0) {
+        available = balance - locked;
+      }
+    }
     final color =
         type == 'mining' ? AppColors.success : const Color(0xFF3D5AFE);
     final icon = type == 'mining' ? Icons.memory : Icons.shopping_cart;
@@ -436,7 +446,7 @@ class WalletScreenState extends State<WalletScreen>
                 Text(title, style: AppTextStyles.heading3),
                 const SizedBox(height: 20),
                 Text(
-                  '${balance.toStringAsFixed(2)} CM',
+                  '${balance.toStringAsFixed(2)} OLR',
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
@@ -504,7 +514,7 @@ class WalletScreenState extends State<WalletScreen>
               style: TextStyle(color: Colors.white70, fontSize: 14)),
           const SizedBox(height: 8),
           Text(
-            '${total.toStringAsFixed(2)} CM',
+            '${total.toStringAsFixed(2)} OLR',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 36,
@@ -549,7 +559,7 @@ class WalletScreenState extends State<WalletScreen>
                     style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 const SizedBox(height: 4),
                 Text(
-                  '${balance.toStringAsFixed(2)} CM',
+                  '${balance.toStringAsFixed(2)} OLR',
                   style: TextStyle(
                       color: color, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
@@ -567,7 +577,7 @@ class WalletScreenState extends State<WalletScreen>
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         const SizedBox(height: 4),
         Text(
-          '${value.toStringAsFixed(2)} CM',
+          '${value.toStringAsFixed(2)} OLR',
           style: TextStyle(
               color: color, fontSize: 16, fontWeight: FontWeight.bold),
         ),
@@ -656,6 +666,8 @@ class WalletScreenState extends State<WalletScreen>
     final status = tx['status'] ?? 'pending';
     final createdAt = tx['createdAt'] ?? '';
 
+    final displayAmount = (tx['coins'] ?? tx['amount'] ?? 0).toDouble().abs();
+
     IconData icon;
     Color color;
 
@@ -725,7 +737,7 @@ class WalletScreenState extends State<WalletScreen>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${type == 'withdrawal' || type == 'transfer' ? '-' : '+'}${amount.toStringAsFixed(2)} CM',
+                '${type == 'withdrawal' || type == 'transfer' ? '-' : '+'}${displayAmount.toStringAsFixed(2)} OLR',
                 style: TextStyle(
                   color: type == 'withdrawal'
                       ? AppColors.error
@@ -849,7 +861,7 @@ class WalletScreenState extends State<WalletScreen>
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  suffixText: 'CM',
+                  suffixText: 'OLR',
                   suffixStyle: const TextStyle(color: AppColors.primary),
                 ),
               ),
@@ -1003,7 +1015,7 @@ class WalletScreenState extends State<WalletScreen>
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                suffixText: 'CM',
+                suffixText: 'OLR',
                 suffixStyle: const TextStyle(color: AppColors.primary),
               ),
             ),
@@ -1011,32 +1023,10 @@ class WalletScreenState extends State<WalletScreen>
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () async {
-                  final amount = double.tryParse(amountController.text);
-                  if (amount == null || amount <= 0) {
-                    _showSnackBar('Enter valid amount', isError: true);
-                    return;
-                  }
-                  if (emailController.text.isEmpty) {
-                    _showSnackBar('Enter recipient email', isError: true);
-                    return;
-                  }
-
-                  Navigator.pop(context);
-                  try {
-                    await ApiService.transferCoins(
-                      recipientEmail: emailController.text,
-                      amount: amount,
-                      walletType: walletType,
-                    );
-                    _showSnackBar('Transfer successful!', isSuccess: true);
-                    _loadData();
-                  } catch (e) {
-                    _showSnackBar('Error: $e', isError: true);
-                  }
-                },
+                onPressed: null, // Transfers temporarily disabled
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3D5AFE),
+                  disabledBackgroundColor: Colors.grey, // Grey out when disabled
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -1174,7 +1164,7 @@ class WalletScreenState extends State<WalletScreen>
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  suffixText: 'CM',
+                  suffixText: 'OLR',
                   suffixStyle: const TextStyle(color: AppColors.primary),
                 ),
               ),
@@ -1223,8 +1213,8 @@ class WalletScreenState extends State<WalletScreen>
   String _formatDate(String dateString) {
     if (dateString.isEmpty) return '';
     try {
-      final date = DateTime.parse(dateString);
-      return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      final date = DateTime.parse(dateString).toLocal();
+      return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateString;
     }

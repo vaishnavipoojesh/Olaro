@@ -379,7 +379,7 @@ class ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _buildStatItem(
                   'Total Mined',
-                  '${(miningStats['totalCoins'] ?? 0).toStringAsFixed(1)} CM',
+                  '${(miningStats['totalCoins'] ?? 0).toStringAsFixed(1)} OLR',
                   Icons.memory,
                   AppColors.success,
                 ),

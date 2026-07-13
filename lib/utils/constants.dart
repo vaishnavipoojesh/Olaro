@@ -43,8 +43,8 @@ class AppColors {
 
 class AppStrings {
   static const String appName = 'CoinMine';
-  static const String coinName = 'CM Coin';
-  static const String coinSymbol = 'CM';
+  static const String coinName = 'OLR Coin';
+  static const String coinSymbol = 'OLR';
 }
 
 class AppTextStyles {

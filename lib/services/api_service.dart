@@ -916,11 +916,12 @@ class ApiService {
     }
   }
 
-  // Ping inactive referrals
-  static Future<Map<String, dynamic>> pingInactiveReferrals() async {
+  // Ping inactive referral
+  static Future<Map<String, dynamic>> pingInactiveReferrals(String targetUserId) async {
     final response = await http.post(
       Uri.parse(ApiConfig.pingReferrals),
       headers: _headers,
+      body: jsonEncode({'targetUserId': targetUserId}),
     );
 
     final data = jsonDecode(response.body);
@@ -931,7 +932,7 @@ class ApiService {
       // Rate limited - return the message but not as error
       throw Exception(data['message'] ?? 'You can ping again in 12 hours');
     } else {
-      throw Exception(data['message'] ?? 'Failed to ping referrals');
+      throw Exception(data['message'] ?? 'Failed to ping referral');
     }
   }
 

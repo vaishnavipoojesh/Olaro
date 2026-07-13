@@ -557,12 +557,12 @@ class _KycScreenState extends State<KycScreen> {
   }
 
   String _formatDate(String? dateStr) {
-    if (dateStr == null) return '';
+    if (dateStr == null || dateStr.isEmpty) return 'Unknown';
     try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('MMM dd, yyyy').format(date);
+      final date = DateTime.parse(dateStr).toLocal();
+      return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
-      return dateStr;
+      return 'Unknown';
     }
   }
 

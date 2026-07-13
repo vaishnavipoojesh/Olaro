@@ -243,20 +243,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _showSnackBar(String message,
       {bool isError = false, bool isSuccess = false}) {
+    // Clean up exception messages
+    String cleanMessage = message.replaceAll('Exception: ', '');
+    if (isError && cleanMessage.startsWith('Error: ')) {
+      cleanMessage = cleanMessage.substring(7);
+    }
+
+    // Dismiss any existing snackbars first to avoid queuing
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
               isError
-                  ? Icons.error
+                  ? Icons.error_outline
                   : isSuccess
-                      ? Icons.check_circle
-                      : Icons.info,
+                      ? Icons.check_circle_outline
+                      : Icons.info_outline,
               color: Colors.white,
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(
+                cleanMessage,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            ),
           ],
         ),
         backgroundColor: isError
@@ -401,9 +419,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _handleBoostMining(String boostType) async {
-    final boostName = boostType == 'speed'
-        ? 'Speed Boost (1.5x rate)'
-        : 'Time Boost (-4 hours)';
+    const boostName = 'Speed Boost (1.5x rate)';
+    
+    // Try to get boost cost if available from status
+    final settings = _miningStatus?['settings'] ?? {};
+    final boostCost = _safeDouble(settings['boostCost'], 0);
+    final costText = boostCost > 0 ? '$boostCost OLR' : 'Free';
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -412,7 +434,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         title:
             const Text('Boost Mining?', style: TextStyle(color: Colors.white)),
         content: Text(
-          'Apply $boostName for 50 coins?',
+          'Apply $boostName?\nCost: $costText',
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
@@ -454,10 +476,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             _realTimeMiningData = MiningData.idle();
           });
         } else {
-          final boostMsg = boostType == 'speed'
-              ? '🚀 Speed boosted 1.5x!'
-              : '⏰ Time reduced by 4 hours!';
-          _showSnackBar(boostMsg, isSuccess: true);
+          final coinsSpent = _safeDouble(result['coinsSpent'], 0);
+          final boostMsg = result['message'] ?? '🚀 Speed boosted 1.5x!';
+          
+          if (coinsSpent > 0) {
+            _showSnackBar('$boostMsg (Spent: $coinsSpent OLR)', isSuccess: true);
+          } else {
+            _showSnackBar(boostMsg, isSuccess: true);
+          }
         }
 
         _refreshInBackground();
@@ -1144,21 +1170,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     () => _handleBoostMining('speed'),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildBoostButton(
-                    'Time -4hr',
-                    Icons.timer_off,
-                    const Color(0xFF3D5AFE),
-                    () => _handleBoostMining('duration'),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Cost: 50 coins per boost',
-              style: TextStyle(color: Colors.grey, fontSize: 11),
+            Text(
+              'Cost: ${(_safeDouble(_miningStatus?['settings']?['boostCost'], 0) > 0) ? '${_safeDouble(_miningStatus?['settings']?['boostCost'], 0)} OLR' : 'Free'}',
+              style: const TextStyle(color: Colors.grey, fontSize: 11),
             ),
           ],
           // Show mining rate breakdown when idle
@@ -1279,7 +1296,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${totalRate.toStringAsFixed(2)} CM/hr',
+                  '${totalRate.toStringAsFixed(2)} OLR/hr',
                   style: const TextStyle(
                     color: Colors.black,
                     fontSize: 14,
@@ -1337,7 +1354,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
         Text(
-          '+${rate.toStringAsFixed(2)} CM/hr',
+          '+${rate.toStringAsFixed(2)} OLR/hr',
           style: TextStyle(
             color: rate > 0 ? Colors.white : Colors.grey,
             fontSize: 13,
