@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import '../config/api_config.dart';
 import '../utils/constants.dart';
 
 class CoinPurchaseScreen extends StatefulWidget {
@@ -905,8 +906,13 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
   }
 
   Widget _buildDynamicQrSection() {
-    final qrUrl =
+    final adminQrUrl = _getAdminQrUrl(_paymentInfo?['qrCodeUrl']?.toString() ?? '');
+    final fallbackDynamicQrUrl =
         'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${Uri.encodeComponent(_paymentLink!)}';
+    
+    // Prefer Admin QR image set in Admin Settings, fallback to dynamic QR code
+    final qrUrl = adminQrUrl.isNotEmpty ? adminQrUrl : fallbackDynamicQrUrl;
+    final upiId = _paymentInfo?['upiId']?.toString() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -938,7 +944,7 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
               qrUrl,
               width: 200,
               height: 200,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return const SizedBox(
@@ -949,8 +955,57 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
                   ),
                 );
               },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.qr_code_2, size: 60, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text('QR Image Error', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
+          if (upiId.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.cardLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('UPI ID', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        Text(upiId, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: AppColors.primary, size: 18),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: upiId));
+                      _showSnackBar('UPI ID copied to clipboard!', isSuccess: true);
+                    },
+                    tooltip: 'Copy UPI ID',
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           Row(
             children: [
@@ -1145,6 +1200,18 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
                 style: const TextStyle(color: Colors.grey, fontSize: 13))),
       ]),
     );
+  }
+
+  String _getAdminQrUrl(String rawUrl) {
+    if (rawUrl.trim().isEmpty) return '';
+    final url = rawUrl.trim();
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    if (url.startsWith('/')) {
+      return '${ApiConfig.rootUrl}$url';
+    }
+    return '${ApiConfig.rootUrl}/$url';
   }
 }
 
