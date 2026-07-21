@@ -17,18 +17,9 @@ class AdMobService {
     return '';
   }
 
-  static String get interstitialAdUnitId {
-    if (Platform.isAndroid) {
-      return 'ca-app-pub-8112751915705580/9035854084'; // Android Interstitial / Rewarded Ad
-    } else if (Platform.isIOS) {
-      return 'ca-app-pub-3940256099942544/4411468910'; // iOS Test Interstitial
-    }
-    return '';
-  }
-
   static String get rewardedAdUnitId {
     if (Platform.isAndroid) {
-      return 'ca-app-pub-8112751915705580/627633458'; // Production Android Rewarded Ad Unit ID
+      return 'ca-app-pub-8112751915705580/6276334548'; // Production Android Rewarded Ad Unit ID
     } else if (Platform.isIOS) {
       return 'ca-app-pub-3940256099942544/1712485313'; // iOS Test Rewarded
     }
@@ -57,27 +48,6 @@ class AdMobService {
         },
       ),
     )..load();
-  }
-
-  /// Helper to load an Interstitial Ad
-  static void loadInterstitialAd({
-    required Function(InterstitialAd) onAdLoaded,
-    Function()? onAdFailed,
-  }) {
-    InterstitialAd.load(
-      adUnitId: interstitialAdUnitId,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          debugPrint('AdMob Interstitial Loaded');
-          onAdLoaded(ad);
-        },
-        onAdFailedToLoad: (error) {
-          debugPrint('AdMob Interstitial Failed: $error');
-          if (onAdFailed != null) onAdFailed();
-        },
-      ),
-    );
   }
 
   /// Helper to load and show a Rewarded Video Ad
