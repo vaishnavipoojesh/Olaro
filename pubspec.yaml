@@ -3,7 +3,7 @@ description: Mining App with Google Sign-In
 
 publish_to: 'none'
 
-version: 1.0.0+7
+version: 1.0.0+8
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -39,6 +39,9 @@ dependencies:
   # Cupertino Icons - For iOS style icons
   cupertino_icons: ^1.0.6
   socket_io_client: ^3.1.4
+
+  # Google Mobile Ads - For AdMob integration
+  google_mobile_ads: ^5.1.0
 
 dev_dependencies:
   flutter_test:

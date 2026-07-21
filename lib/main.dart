@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:ui';
 import 'dart:async';
 import 'services/api_service.dart';
@@ -11,6 +12,7 @@ import 'utils/constants.dart';
 void main() {
   runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
+    unawaited(MobileAds.instance.initialize());
 
     // Global error handlers to catch uncaught exceptions
     FlutterError.onError = (FlutterErrorDetails details) {

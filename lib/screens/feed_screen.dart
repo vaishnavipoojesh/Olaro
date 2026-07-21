@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
 import '../utils/constants.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../services/admob_service.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -611,7 +613,13 @@ class FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
               ),
             );
           }
-          return _buildFeedCard(_feeds[index], index);
+          final showAdAfter = (index + 1) % 3 == 0;
+          return Column(
+            children: [
+              _buildFeedCard(_feeds[index], index),
+              if (showAdAfter) const InlineFeedBannerAd(),
+            ],
+          );
         },
       ),
     );
@@ -1513,5 +1521,62 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   void dispose() {
     _commentController.dispose();
     super.dispose();
+  }
+}
+
+class InlineFeedBannerAd extends StatefulWidget {
+  const InlineFeedBannerAd({super.key});
+
+  @override
+  State<InlineFeedBannerAd> createState() => _InlineFeedBannerAdState();
+}
+
+class _InlineFeedBannerAdState extends State<InlineFeedBannerAd> {
+  BannerAd? _bannerAd;
+  bool _isAdLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bannerAd = AdMobService.createBannerAd(
+      onAdLoaded: () {
+        if (mounted) setState(() => _isAdLoaded = true);
+      },
+      onAdFailedToLoad: (error) {
+        if (mounted) setState(() => _isAdLoaded = false);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isAdLoaded || _bannerAd == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.all(8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        children: [
+          const Text('Sponsored', style: TextStyle(color: Colors.grey, fontSize: 10)),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: _bannerAd!.size.width.toDouble(),
+            height: _bannerAd!.size.height.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -13,6 +13,7 @@ import 'coin_purchase_screen.dart';
 import 'leaderboard_screen.dart';
 import 'notifications_screen.dart';
 import 'transaction_history_screen.dart';
+import '../services/admob_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -381,51 +382,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         'Mining action - Socket status: $socketStatus, API status: $apiStatus, Using: $status');
 
     if (status == 'idle') {
-      // Optimistic UI - immediately show mining state
-      setState(() {
-        _miningStatus = {...?_miningStatus, 'status': 'mining'};
-        _realTimeMiningData = MiningData(
-          status: 'mining',
-          coinsEarned: 0,
-          timeRemaining: 86400,
-          progress: 0,
-        );
-      });
+      _showSnackBar('🎬 Loading ad to start mining...', isSuccess: true);
+      AdMobService.showRewardedAd(
+        onUserEarnedReward: (reward) {},
+        onAdDismissedOrFailed: () async {
+          // Optimistic UI - immediately show mining state
+          setState(() {
+            _miningStatus = {...?_miningStatus, 'status': 'mining'};
+            _realTimeMiningData = MiningData(
+              status: 'mining',
+              coinsEarned: 0,
+              timeRemaining: 86400,
+              progress: 0,
+            );
+          });
 
-      try {
-        await ApiService.startMining();
-        _showSnackBar('Mining started! ⛏️', isSuccess: true);
-        // Refresh in background without loading
-        _refreshInBackground();
-      } catch (e) {
-        // Revert on error
-        setState(() {
-          _miningStatus = {...?_miningStatus, 'status': 'idle'};
-          _realTimeMiningData = MiningData.idle();
-        });
-        _showSnackBar('Error: $e', isError: true);
-      }
+          try {
+            await ApiService.startMining();
+            _showSnackBar('Mining started! ⛏️', isSuccess: true);
+            // Refresh in background without loading
+            _refreshInBackground();
+          } catch (e) {
+            // Revert on error
+            setState(() {
+              _miningStatus = {...?_miningStatus, 'status': 'idle'};
+              _realTimeMiningData = MiningData.idle();
+            });
+            _showSnackBar('Error: $e', isError: true);
+          }
+        },
+      );
     } else if (status == 'complete') {
-      // Optimistic UI - immediately show idle state with coins added
-      final coinsEarned = _realTimeMiningData?.coinsEarned ?? 0;
-      setState(() {
-        _miningStatus = {...?_miningStatus, 'status': 'idle'};
-        _realTimeMiningData = MiningData.idle();
-      });
+      _showSnackBar('🎬 Loading ad to claim coins...', isSuccess: true);
+      AdMobService.showRewardedAd(
+        onUserEarnedReward: (reward) {},
+        onAdDismissedOrFailed: () async {
+          // Optimistic UI - immediately show idle state with coins added
+          final coinsEarned = _realTimeMiningData?.coinsEarned ?? 0;
+          setState(() {
+            _miningStatus = {...?_miningStatus, 'status': 'idle'};
+            _realTimeMiningData = MiningData.idle();
+          });
 
-      try {
-        await ApiService.claimMining();
-        _showSnackBar('🎉 +${coinsEarned.toStringAsFixed(2)} coins claimed!',
-            isSuccess: true);
-        // Refresh in background without loading
-        _refreshInBackground();
-      } catch (e) {
-        // Revert on error
-        setState(() {
-          _miningStatus = {...?_miningStatus, 'status': 'complete'};
-        });
-        _showSnackBar('Error: $e', isError: true);
-      }
+          try {
+            await ApiService.claimMining();
+            _showSnackBar('🎉 +${coinsEarned.toStringAsFixed(2)} coins claimed!',
+                isSuccess: true);
+            // Refresh in background without loading
+            _refreshInBackground();
+          } catch (e) {
+            // Revert on error
+            setState(() {
+              _miningStatus = {...?_miningStatus, 'status': 'complete'};
+            });
+            _showSnackBar('Error: $e', isError: true);
+          }
+        },
+      );
     } else {
       _showSnackBar('Mining in progress...');
     }
@@ -471,94 +484,109 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (confirm == true) {
       HapticFeedback.mediumImpact();
 
-      // Show immediate feedback
-      _showSnackBar('⚡ Applying boost...', isSuccess: true);
+      // Show Rewarded Video Ad before applying boost
+      _showSnackBar('🎬 Loading video ad...', isSuccess: true);
+      AdMobService.showRewardedAd(
+        onUserEarnedReward: (reward) {
+          debugPrint('User earned reward from ad: ${reward.amount} ${reward.type}');
+        },
+        onAdDismissedOrFailed: () async {
+          // Proceed with applying boost
+          _showSnackBar('⚡ Applying boost...', isSuccess: true);
 
-      try {
-        final result = await ApiService.boostMining(boostType: boostType);
+          try {
+            final result = await ApiService.boostMining(boostType: boostType);
 
-        // Check if mining was completed by the boost
-        final miningCompleted = result['miningCompleted'] == true;
+            // Check if mining was completed by the boost
+            final miningCompleted = result['miningCompleted'] == true;
 
-        if (miningCompleted) {
-          final coinsEarned = result['coinsEarned'] ?? 0;
-          _showSnackBar('🎉 Mining completed! +$coinsEarned coins earned!',
-              isSuccess: true);
+            if (miningCompleted) {
+              final coinsEarned = result['coinsEarned'] ?? 0;
+              _showSnackBar('🎉 Mining completed! +$coinsEarned coins earned!',
+                  isSuccess: true);
 
-          // Update UI to show idle state
-          setState(() {
-            _miningStatus = {...?_miningStatus, 'status': 'idle'};
-            _realTimeMiningData = MiningData.idle();
-          });
-        } else {
-          final coinsSpent = _safeDouble(result['coinsSpent'], 0);
-          final boostMsg = result['message'] ?? '🚀 Speed boosted 1.5x!';
-          
-          if (coinsSpent > 0) {
-            _showSnackBar('$boostMsg (Spent: $coinsSpent OLR)', isSuccess: true);
-          } else {
-            _showSnackBar(boostMsg, isSuccess: true);
+              // Update UI to show idle state
+              setState(() {
+                _miningStatus = {...?_miningStatus, 'status': 'idle'};
+                _realTimeMiningData = MiningData.idle();
+              });
+            } else {
+              final coinsSpent = _safeDouble(result['coinsSpent'], 0);
+              final boostMsg = result['message'] ?? '🚀 Speed boosted 1.5x!';
+              
+              if (coinsSpent > 0) {
+                _showSnackBar('$boostMsg (Spent: $coinsSpent OLR)', isSuccess: true);
+              } else {
+                _showSnackBar(boostMsg, isSuccess: true);
+              }
+            }
+
+            _refreshInBackground();
+          } catch (e) {
+            _showSnackBar('Error: $e', isError: true);
           }
-        }
-
-        _refreshInBackground();
-      } catch (e) {
-        _showSnackBar('Error: $e', isError: true);
-      }
+        },
+      );
     }
   }
 
   Future<void> _handleDailyCheckIn() async {
     HapticFeedback.mediumImpact();
 
-    // Optimistic UI - immediately show as checked in
-    final currentStreak = _dashboardData?['checkin']?['streak'] ??
-        _dashboardData?['user']?['dailyCheckIn']?['streak'] ??
-        0;
+    _showSnackBar('🎬 Loading video ad for daily reward...', isSuccess: true);
+    AdMobService.showRewardedAd(
+      onUserEarnedReward: (reward) {},
+      onAdDismissedOrFailed: () async {
+        // Optimistic UI - immediately show as checked in
+        final currentStreak = _dashboardData?['checkin']?['streak'] ??
+            _dashboardData?['user']?['dailyCheckIn']?['streak'] ??
+            0;
 
-    setState(() {
-      if (_dashboardData != null) {
-        _dashboardData!['checkin'] = {
-          ...?_dashboardData!['checkin'],
-          'hasCheckedIn': true,
-          'streak': currentStreak + 1,
-        };
-      }
-    });
+        setState(() {
+          if (_dashboardData != null) {
+            _dashboardData!['checkin'] = {
+              ...?_dashboardData!['checkin'],
+              'hasCheckedIn': true,
+              'streak': currentStreak + 1,
+            };
+          }
+        });
 
-    try {
-      final result = await ApiService.dailyCheckIn();
-      final dynamic rawData = result['data'] ?? result;
-      final Map<String, dynamic> data =
-          (rawData is Map<String, dynamic>) ? rawData : result;
-      final bonusObj = data['bonus'];
-      double bonusCoins = 1.0;
-      double nextDayBonus = 1.0;
+        try {
+          final result = await ApiService.dailyCheckIn();
+          final dynamic rawData = result['data'] ?? result;
+          final Map<String, dynamic> data =
+              (rawData is Map<String, dynamic>) ? rawData : result;
+          final bonusObj = data['bonus'];
+          double bonusCoins = 1.0;
+          double nextDayBonus = 1.0;
 
-      if (bonusObj is Map) {
-        bonusCoins = _safeDouble(bonusObj['coins'], 1.0);
-        nextDayBonus = _safeDouble(bonusObj['nextDayBonus'], 1.0);
-      } else if (bonusObj is num) {
-        bonusCoins = bonusObj.toDouble();
-      }
+          if (bonusObj is Map) {
+            bonusCoins = _safeDouble(bonusObj['coins'], 1.0);
+            nextDayBonus = _safeDouble(bonusObj['nextDayBonus'], 1.0);
+          } else if (bonusObj is num) {
+            bonusCoins = bonusObj.toDouble();
+          }
 
-      // Show beautiful popup instead of snackbar
-      _showDailyRewardDialog(currentStreak + 1, bonusCoins, nextDayBonus);
-      // Refresh in background
-      _refreshInBackground();
-    } catch (e) {
-      // Revert on error
-      setState(() {
-        if (_dashboardData != null) {
-          _dashboardData!['checkin'] = {
-            ...?_dashboardData!['checkin'],
-            'hasCheckedIn': false,
-            'streak': currentStreak,
-          };
+          // Show beautiful popup instead of snackbar
+          _showDailyRewardDialog(currentStreak + 1, bonusCoins, nextDayBonus);
+          // Refresh in background
+          _refreshInBackground();
+        } catch (e) {
+          // Revert on error
+          setState(() {
+            if (_dashboardData != null) {
+              _dashboardData!['checkin'] = {
+                ...?_dashboardData!['checkin'],
+                'hasCheckedIn': false,
+                'streak': currentStreak,
+              };
+            }
+          });
+          _showSnackBar('Check-in failed: $e', isError: true);
         }
-      });
-      _showSnackBar('Error: $e', isError: true);
-    }
+      },
+    );
   }
 
   void _showDailyRewardDialog(int day, double coins, double nextBonus) {
