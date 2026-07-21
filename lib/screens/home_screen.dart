@@ -344,6 +344,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             }
           }
 
+          // Decrement boost timer if active
+          if (_miningStatus != null && _miningStatus!['boostStatus'] != null) {
+            final boostStatus = Map<String, dynamic>.from(_miningStatus!['boostStatus']);
+            final currentRemaining = _safeInt(boostStatus['boostTimeRemaining'], 0);
+            if (currentRemaining > 0) {
+              boostStatus['boostTimeRemaining'] = currentRemaining - 1;
+              if (currentRemaining - 1 <= 0) {
+                boostStatus['isBoostActive'] = false;
+              }
+              _miningStatus = {..._miningStatus!, 'boostStatus': boostStatus};
+            }
+          }
+
           _realTimeMiningData = MiningData(
             status: 'mining',
             coinsEarned: newCoins,
@@ -419,12 +432,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _handleBoostMining(String boostType) async {
-    const boostName = 'Speed Boost (1.5x rate)';
-    
-    // Try to get boost cost if available from status
     final settings = _miningStatus?['settings'] ?? {};
-    final boostCost = _safeDouble(settings['boostCost'], 0);
-    final costText = boostCost > 0 ? '$boostCost OLR' : 'Free';
+    final boostStatus = _miningStatus?['boostStatus'] ?? {};
+    final boostCost = _safeDouble(settings['boostCost'] ?? boostStatus['boostCost'], 50);
+    final boostPercent = _safeInt(settings['boostBonusPercent'] ?? boostStatus['boostBonusPercent'], 50);
+    final boostDuration = _safeInt(settings['boostDurationMinutes'] ?? boostStatus['boostDurationMinutes'], 30);
+    
+    final boostName = '+$boostPercent% Base Rate for ${boostDuration}m';
+    final costText = boostCost > 0 ? '${boostCost.toStringAsFixed(0)} OLR' : 'Free';
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -432,9 +447,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         backgroundColor: const Color(0xFF1D1F33),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title:
-            const Text('Boost Mining?', style: TextStyle(color: Colors.white)),
+            const Text('⚡ Boost Mining Rate?', style: TextStyle(color: Colors.white)),
         content: Text(
-          'Apply $boostName?\nCost: $costText',
+          'Boost base mining rate by $boostName?\n\nCost: $costText',
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
@@ -447,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFFD700),
             ),
-            child: const Text('Boost!', style: TextStyle(color: Colors.black)),
+            child: const Text('Boost Now!', style: TextStyle(color: Colors.black)),
           ),
         ],
       ),
@@ -1149,33 +1164,100 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Boost buttons - only show when mining is active
           if (isActive && !canClaim) ...[
             const SizedBox(height: 24),
-            const Text(
-              '⚡ BOOST OPTIONS',
-              style: TextStyle(
-                color: Color(0xFFFFD700),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: _buildBoostButton(
-                    'Speed 1.5x',
-                    Icons.flash_on,
-                    const Color(0xFFFF8C00),
-                    () => _handleBoostMining('speed'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Cost: ${(_safeDouble(_miningStatus?['settings']?['boostCost'], 0) > 0) ? '${_safeDouble(_miningStatus?['settings']?['boostCost'], 0)} OLR' : 'Free'}',
-              style: const TextStyle(color: Colors.grey, fontSize: 11),
+            Builder(
+              builder: (context) {
+                final boostStatus = _miningStatus?['boostStatus'] ?? {};
+                final isBoostActive = boostStatus['isBoostActive'] == true;
+                final boostTimeRemainingSecs = _safeInt(boostStatus['boostTimeRemaining'], 0);
+                final boostBonusPercent = _safeInt(boostStatus['boostBonusPercent'], 50);
+                final boostCost = _safeDouble(_miningStatus?['settings']?['boostCost'] ?? boostStatus['boostCost'], 50);
+
+                if (isBoostActive) {
+                  final mins = boostTimeRemainingSecs ~/ 60;
+                  final secs = boostTimeRemainingSecs % 60;
+                  final timeStr = '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8E2DE2).withValues(alpha: 0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.flash_on, color: Color(0xFFFFD700), size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '⚡ BOOST ACTIVE (+$boostBonusPercent% Speed)',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Expires in: $timeStr',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    const Text(
+                      '⚡ BOOST OPTIONS',
+                      style: TextStyle(
+                        color: Color(0xFFFFD700),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _buildBoostButton(
+                            'Speed Boost (+$boostBonusPercent%)',
+                            Icons.flash_on,
+                            const Color(0xFFFF8C00),
+                            () => _handleBoostMining('speed'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Cost: ${boostCost > 0 ? '${boostCost.toStringAsFixed(0)} OLR' : 'Free'} (Active for 30 mins)',
+                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
           // Show mining rate breakdown when idle

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
 
@@ -87,12 +88,22 @@ class ReferralScreenState extends State<ReferralScreen> {
   }
 
   void _copyShareLink() {
-    final link = _shareData?['shareLink'] ?? '';
+    final link = _shareData?['shareLink'] ??
+        'https://play.google.com/store/apps/details?id=com.olaroapp.app';
     if (link.isNotEmpty) {
       Clipboard.setData(ClipboardData(text: link));
       _showSnackBar('Share link copied!', isSuccess: true);
       HapticFeedback.mediumImpact();
     }
+  }
+
+  void _shareContent() {
+    final shareLink = _shareData?['shareLink'] ??
+        'https://play.google.com/store/apps/details?id=com.olaroapp.app';
+    final referralCode = _shareData?['referralCode'] ?? '';
+    final message = _shareData?['shareMessage'] ??
+        'Join Olaro App and start earning coins! ${referralCode.isNotEmpty ? "Use my referral code: $referralCode to get bonus coins. " : ""}Download app: $shareLink';
+    Share.share(message);
   }
 
   Future<void> _pingReferral(String userId, String userName) async {
@@ -321,7 +332,8 @@ class ReferralScreenState extends State<ReferralScreen> {
   }
 
   Widget _buildShareLinkCard() {
-    final link = _shareData?['shareLink'] ?? '';
+    final link = _shareData?['shareLink'] ??
+        'https://play.google.com/store/apps/details?id=com.olaroapp.app';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -388,7 +400,7 @@ class ReferralScreenState extends State<ReferralScreen> {
 
   Widget _buildShareButton(String label, IconData icon, Color color) {
     return GestureDetector(
-      onTap: _copyShareLink, // In real app, implement actual sharing
+      onTap: _shareContent,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
