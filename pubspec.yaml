@@ -3,7 +3,7 @@ description: Mining App with Google Sign-In
 
 publish_to: 'none'
 
-version: 1.0.0+9
+version: 1.0.0+12
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

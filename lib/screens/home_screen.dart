@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Map<String, dynamic>? _miningStatus;
   bool _isLoading = true;
   int _currentIndex = 0;
+  bool _isAdLoading = false;
 
   // Socket service for real-time updates
   final SocketService _socketService = SocketService.instance;
@@ -371,6 +372,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _handleMining() async {
+    if (_isAdLoading) return;
     HapticFeedback.mediumImpact();
 
     // Use socket data first (real-time), then fallback to API data
@@ -382,69 +384,114 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         'Mining action - Socket status: $socketStatus, API status: $apiStatus, Using: $status');
 
     if (status == 'idle') {
+      setState(() {
+        _isAdLoading = true;
+      });
       _showSnackBar('🎬 Loading ad to start mining...', isSuccess: true);
-      AdMobService.showRewardedAd(
-        onUserEarnedReward: (reward) {},
-        onAdDismissedOrFailed: () async {
-          // Optimistic UI - immediately show mining state
-          setState(() {
-            _miningStatus = {...?_miningStatus, 'status': 'mining'};
-            _realTimeMiningData = MiningData(
-              status: 'mining',
-              coinsEarned: 0,
-              timeRemaining: 86400,
-              progress: 0,
-            );
-          });
+      bool callbackCalled = false;
+      try {
+        AdMobService.showRewardedAd(
+          onUserEarnedReward: (reward) {},
+          onAdDismissedOrFailed: () async {
+            if (callbackCalled) return;
+            callbackCalled = true;
 
-          try {
-            await ApiService.startMining();
-            _showSnackBar('Mining started! ⛏️', isSuccess: true);
-            // Refresh in background without loading
-            _refreshInBackground();
-          } catch (e) {
-            // Revert on error
+            // Optimistic UI - immediately show mining state
+            setState(() {
+              _miningStatus = {...?_miningStatus, 'status': 'mining'};
+              _realTimeMiningData = MiningData(
+                status: 'mining',
+                coinsEarned: 0,
+                timeRemaining: 86400,
+                progress: 0,
+              );
+            });
+
+            try {
+              await ApiService.startMining();
+              _showSnackBar('Mining started! ⛏️', isSuccess: true);
+              // Refresh in background without loading
+              _refreshInBackground();
+            } catch (e) {
+              // Revert on error
+              setState(() {
+                _miningStatus = {...?_miningStatus, 'status': 'idle'};
+                _realTimeMiningData = MiningData.idle();
+              });
+              _showSnackBar('Error: $e', isError: true);
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _isAdLoading = false;
+                });
+              }
+            }
+          },
+        );
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isAdLoading = false;
+          });
+        }
+        _showSnackBar('Ad error: $e', isError: true);
+      }
+    } else if (status == 'complete') {
+      setState(() {
+        _isAdLoading = true;
+      });
+      _showSnackBar('🎬 Loading ad to claim coins...', isSuccess: true);
+      bool callbackCalled = false;
+      try {
+        AdMobService.showRewardedAd(
+          onUserEarnedReward: (reward) {},
+          onAdDismissedOrFailed: () async {
+            if (callbackCalled) return;
+            callbackCalled = true;
+
+            // Optimistic UI - immediately show idle state with coins added
+            final coinsEarned = _realTimeMiningData?.coinsEarned ?? 0;
             setState(() {
               _miningStatus = {...?_miningStatus, 'status': 'idle'};
               _realTimeMiningData = MiningData.idle();
             });
-            _showSnackBar('Error: $e', isError: true);
-          }
-        },
-      );
-    } else if (status == 'complete') {
-      _showSnackBar('🎬 Loading ad to claim coins...', isSuccess: true);
-      AdMobService.showRewardedAd(
-        onUserEarnedReward: (reward) {},
-        onAdDismissedOrFailed: () async {
-          // Optimistic UI - immediately show idle state with coins added
-          final coinsEarned = _realTimeMiningData?.coinsEarned ?? 0;
-          setState(() {
-            _miningStatus = {...?_miningStatus, 'status': 'idle'};
-            _realTimeMiningData = MiningData.idle();
-          });
 
-          try {
-            await ApiService.claimMining();
-            _showSnackBar('🎉 +${coinsEarned.toStringAsFixed(2)} coins claimed!',
-                isSuccess: true);
-            // Refresh in background without loading
-            _refreshInBackground();
-          } catch (e) {
-            // Revert on error
-            setState(() {
-              _miningStatus = {...?_miningStatus, 'status': 'complete'};
-            });
-            _showSnackBar('Error: $e', isError: true);
-          }
-        },
-      );
+            try {
+              await ApiService.claimMining();
+              _showSnackBar('🎉 +${coinsEarned.toStringAsFixed(2)} coins claimed!',
+                  isSuccess: true);
+              // Refresh in background without loading
+              _refreshInBackground();
+            } catch (e) {
+              // Revert on error
+              setState(() {
+                _miningStatus = {...?_miningStatus, 'status': 'complete'};
+              });
+              _showSnackBar('Error: $e', isError: true);
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _isAdLoading = false;
+                });
+              }
+            }
+          },
+        );
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isAdLoading = false;
+          });
+        }
+        _showSnackBar('Ad error: $e', isError: true);
+      }
     } else {
       _showSnackBar('Mining in progress...');
     }
   }
 
   Future<void> _handleBoostMining(String boostType) async {
+    if (_isAdLoading) return;
     final settings = _miningStatus?['settings'] ?? {};
     final boostStatus = _miningStatus?['boostStatus'] ?? {};
     final boostCost = _safeDouble(settings['boostCost'] ?? boostStatus['boostCost'], 50);
@@ -482,111 +529,159 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
 
     if (confirm == true) {
+      if (_isAdLoading) return;
       HapticFeedback.mediumImpact();
+
+      setState(() {
+        _isAdLoading = true;
+      });
 
       // Show Rewarded Video Ad before applying boost
       _showSnackBar('🎬 Loading video ad...', isSuccess: true);
-      AdMobService.showRewardedAd(
-        onUserEarnedReward: (reward) {
-          debugPrint('User earned reward from ad: ${reward.amount} ${reward.type}');
-        },
-        onAdDismissedOrFailed: () async {
-          // Proceed with applying boost
-          _showSnackBar('⚡ Applying boost...', isSuccess: true);
+      bool callbackCalled = false;
+      try {
+        AdMobService.showRewardedAd(
+          onUserEarnedReward: (reward) {
+            debugPrint('User earned reward from ad: ${reward.amount} ${reward.type}');
+          },
+          onAdDismissedOrFailed: () async {
+            if (callbackCalled) return;
+            callbackCalled = true;
 
-          try {
-            final result = await ApiService.boostMining(boostType: boostType);
+            // Proceed with applying boost
+            _showSnackBar('⚡ Applying boost...', isSuccess: true);
 
-            // Check if mining was completed by the boost
-            final miningCompleted = result['miningCompleted'] == true;
+            try {
+              final result = await ApiService.boostMining(boostType: boostType);
 
-            if (miningCompleted) {
-              final coinsEarned = result['coinsEarned'] ?? 0;
-              _showSnackBar('🎉 Mining completed! +$coinsEarned coins earned!',
-                  isSuccess: true);
+              // Check if mining was completed by the boost
+              final miningCompleted = result['miningCompleted'] == true;
 
-              // Update UI to show idle state
-              setState(() {
-                _miningStatus = {...?_miningStatus, 'status': 'idle'};
-                _realTimeMiningData = MiningData.idle();
-              });
-            } else {
-              final coinsSpent = _safeDouble(result['coinsSpent'], 0);
-              final boostMsg = result['message'] ?? '🚀 Speed boosted 1.5x!';
-              
-              if (coinsSpent > 0) {
-                _showSnackBar('$boostMsg (Spent: $coinsSpent OLR)', isSuccess: true);
+              if (miningCompleted) {
+                final coinsEarned = result['coinsEarned'] ?? 0;
+                _showSnackBar('🎉 Mining completed! +$coinsEarned coins earned!',
+                    isSuccess: true);
+
+                // Update UI to show idle state
+                setState(() {
+                  _miningStatus = {...?_miningStatus, 'status': 'idle'};
+                  _realTimeMiningData = MiningData.idle();
+                });
               } else {
-                _showSnackBar(boostMsg, isSuccess: true);
+                final coinsSpent = _safeDouble(result['coinsSpent'], 0);
+                final boostMsg = result['message'] ?? '🚀 Speed boosted 1.5x!';
+                
+                if (coinsSpent > 0) {
+                  _showSnackBar('$boostMsg (Spent: $coinsSpent OLR)', isSuccess: true);
+                } else {
+                  _showSnackBar(boostMsg, isSuccess: true);
+                }
+              }
+
+              _refreshInBackground();
+            } catch (e) {
+              _showSnackBar('Error: $e', isError: true);
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _isAdLoading = false;
+                });
               }
             }
-
-            _refreshInBackground();
-          } catch (e) {
-            _showSnackBar('Error: $e', isError: true);
-          }
-        },
-      );
+          },
+        );
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isAdLoading = false;
+          });
+        }
+        _showSnackBar('Ad error: $e', isError: true);
+      }
     }
   }
 
   Future<void> _handleDailyCheckIn() async {
+    if (_isAdLoading) return;
     HapticFeedback.mediumImpact();
 
+    setState(() {
+      _isAdLoading = true;
+    });
+
     _showSnackBar('🎬 Loading video ad for daily reward...', isSuccess: true);
-    AdMobService.showRewardedAd(
-      onUserEarnedReward: (reward) {},
-      onAdDismissedOrFailed: () async {
-        // Optimistic UI - immediately show as checked in
-        final currentStreak = _dashboardData?['checkin']?['streak'] ??
-            _dashboardData?['user']?['dailyCheckIn']?['streak'] ??
-            0;
+    bool callbackCalled = false;
+    try {
+      AdMobService.showRewardedAd(
+        onUserEarnedReward: (reward) {},
+        onAdDismissedOrFailed: () async {
+          if (callbackCalled) return;
+          callbackCalled = true;
 
-        setState(() {
-          if (_dashboardData != null) {
-            _dashboardData!['checkin'] = {
-              ...?_dashboardData!['checkin'],
-              'hasCheckedIn': true,
-              'streak': currentStreak + 1,
-            };
-          }
-        });
+          // Optimistic UI - immediately show as checked in
+          final currentStreak = _dashboardData?['checkin']?['streak'] ??
+              _dashboardData?['user']?['dailyCheckIn']?['streak'] ??
+              0;
 
-        try {
-          final result = await ApiService.dailyCheckIn();
-          final dynamic rawData = result['data'] ?? result;
-          final Map<String, dynamic> data =
-              (rawData is Map<String, dynamic>) ? rawData : result;
-          final bonusObj = data['bonus'];
-          double bonusCoins = 1.0;
-          double nextDayBonus = 1.0;
-
-          if (bonusObj is Map) {
-            bonusCoins = _safeDouble(bonusObj['coins'], 1.0);
-            nextDayBonus = _safeDouble(bonusObj['nextDayBonus'], 1.0);
-          } else if (bonusObj is num) {
-            bonusCoins = bonusObj.toDouble();
-          }
-
-          // Show beautiful popup instead of snackbar
-          _showDailyRewardDialog(currentStreak + 1, bonusCoins, nextDayBonus);
-          // Refresh in background
-          _refreshInBackground();
-        } catch (e) {
-          // Revert on error
           setState(() {
             if (_dashboardData != null) {
               _dashboardData!['checkin'] = {
                 ...?_dashboardData!['checkin'],
-                'hasCheckedIn': false,
-                'streak': currentStreak,
+                'hasCheckedIn': true,
+                'streak': currentStreak + 1,
               };
             }
           });
-          _showSnackBar('Check-in failed: $e', isError: true);
-        }
-      },
-    );
+
+          try {
+            final result = await ApiService.dailyCheckIn();
+            final dynamic rawData = result['data'] ?? result;
+            final Map<String, dynamic> data =
+                (rawData is Map<String, dynamic>) ? rawData : result;
+            final bonusObj = data['bonus'];
+            double bonusCoins = 1.0;
+            double nextDayBonus = 1.0;
+
+            if (bonusObj is Map) {
+              bonusCoins = _safeDouble(bonusObj['coins'], 1.0);
+              nextDayBonus = _safeDouble(bonusObj['nextDayBonus'], 1.0);
+            } else if (bonusObj is num) {
+              bonusCoins = bonusObj.toDouble();
+            }
+
+            // Show beautiful popup instead of snackbar
+            _showDailyRewardDialog(currentStreak + 1, bonusCoins, nextDayBonus);
+            // Refresh in background
+            _refreshInBackground();
+          } catch (e) {
+            // Revert on error
+            setState(() {
+              if (_dashboardData != null) {
+                _dashboardData!['checkin'] = {
+                  ...?_dashboardData!['checkin'],
+                  'hasCheckedIn': false,
+                  'streak': currentStreak,
+                };
+              }
+            });
+            _showSnackBar('Check-in failed: $e', isError: true);
+          } finally {
+            if (mounted) {
+              setState(() {
+                _isAdLoading = false;
+              });
+            }
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isAdLoading = false;
+        });
+      }
+      _showSnackBar('Ad error: $e', isError: true);
+    }
   }
 
   void _showDailyRewardDialog(int day, double coins, double nextBonus) {
@@ -1114,7 +1209,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               // Main mining button
               GestureDetector(
-                onTap: _handleMining,
+                onTap: _isAdLoading ? null : _handleMining,
                 child: AnimatedBuilder(
                   animation: _pulseAnimation,
                   builder: (context, child) {
@@ -1160,27 +1255,46 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              canClaim
-                                  ? Icons.redeem
-                                  : isActive
-                                      ? Icons.memory
-                                      : Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: canClaim ? 40 : (isActive ? 32 : 40),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              canClaim
-                                  ? 'CLAIM'
-                                  : (isActive ? 'Mining' : 'START'),
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: canClaim ? 16 : 14,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                          children: _isAdLoading
+                              ? [
+                                  const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Loading...',
+                                    style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ]
+                              : [
+                                  Icon(
+                                    canClaim
+                                        ? Icons.redeem
+                                        : isActive
+                                            ? Icons.memory
+                                            : Icons.play_arrow_rounded,
+                                    color: Colors.white,
+                                    size: canClaim ? 40 : (isActive ? 32 : 40),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    canClaim
+                                        ? 'CLAIM'
+                                        : (isActive ? 'Mining' : 'START'),
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: canClaim ? 16 : 14,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                         ),
                       ),
                     );
@@ -1273,7 +1387,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             'Speed Boost (+$boostBonusPercent%)',
                             Icons.flash_on,
                             const Color(0xFFFF8C00),
-                            () => _handleBoostMining('speed'),
+                            _isAdLoading ? null : () => _handleBoostMining('speed'),
                           ),
                         ),
                       ],
@@ -1510,40 +1624,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildBoostButton(
-      String label, IconData icon, Color color, VoidCallback onTap) {
+      String label, IconData icon, Color color, VoidCallback? onTap) {
+    final isDisabled = onTap == null;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              color.withValues(alpha: 0.3),
-              color.withValues(alpha: 0.1)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+      child: Opacity(
+        opacity: isDisabled ? 0.5 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                color.withValues(alpha: 0.3),
+                color.withValues(alpha: 0.1)
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1759,7 +1877,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           if (!hasCheckedIn)
             ElevatedButton(
-              onPressed: _handleDailyCheckIn,
+              onPressed: _isAdLoading ? null : _handleDailyCheckIn,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFD700),
                 foregroundColor: Colors.black,
